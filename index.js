@@ -38,6 +38,10 @@ const POSTHANDLER = (req, res) => {
   res.send("success");
   collection = db.collections;
   console.log(collection);
+  var us = getUsers();
+  us.then(function(result) {
+     console.log(result) // "Some User token"
+  })
 };
 
 app.get("/userName/:userName/password/:password/data/:data", POSTHANDLER);
@@ -46,7 +50,20 @@ async function getUsers(){
   return await user.find({}, null);
 }
 
-var user = getUsers();
-user.then(function(result) {
-   console.log(result) // "Some User token"
-})
+async function deleteUser(username){
+  await user.deleteOne({userName: `${username}`}, function(err){err?console.log("error deleting user"):console.log(`success deleting ${username}`)});
+  var us = getUsers();
+  us.then(function(result) {
+     console.log(result) // "Some User token"
+  })
+}
+
+function deleteAllUsers(){
+  var us = getUsers();
+  us.then(function(result) {
+    for(let entry of result){
+      deleteUser(entry.userName);
+    }
+  })
+
+}

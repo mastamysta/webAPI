@@ -34,7 +34,7 @@ function createParams(){
   console.log(password);
   var data = $("#exampledata").val();
   console.log(data);
-  var append = `http://localhost:3000/userName/:${userName}/password/:${password}/data/:${data}`;
+  var append = `http://localhost:3000/userName/${userName}/password/${password}/data/${data}`;
   return append;
 }
 $("#submit").click(function(){
