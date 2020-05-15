@@ -16,7 +16,7 @@ db.once('open', function() {
 var userSchema = new mongoose.Schema({
   userName: String,
   password: String,
-  data: String
+  email: String
 });
 
 app.listen(INPUTPORT, dank.connectionRec);
@@ -31,10 +31,10 @@ const ENTRYERR = (err, u) => {
 
 var user = mongoose.model('user', userSchema);
 
-const POSTHANDLER = (req, res) => {
-  var thisUser = new user({userName: req.params.userName, password: req.params.password, data: req.params.data});
+const REGISTERHANDLER = (req, res) => {
+  var thisUser = new user({userName: req.params.userName, password: req.params.password, email: req.params.email});
   thisUser.save(ENTRYERR);
-  console.log(`Successfully entered:\n${req.params.userName}\n${req.params.password}\n${req.params.data}\n\n\n`);
+  console.log(`Successfully entered:\n${req.params.userName}\n${req.params.password}\n${req.params.email}\n\n\n`);
   res.send("success");
   collection = db.collections;
   console.log(collection);
@@ -44,10 +44,64 @@ const POSTHANDLER = (req, res) => {
   })
 };
 
-app.get("/userName/:userName/password/:password/data/:data", POSTHANDLER);
+const REGISTERHANDLERCRYPTO = (req, res) => {
+  const salt = crypto.randomBytes(16);
+  const hmac = crypto.createHmac("sha256", salt);
+  const hash = hmac.update(req.params.password).digest('base64');
+  const salthash = `${salt}M${hash}`;
+  var thisUser = new user({userName: req.params.userName, password: salthash, email: req.params.email});
+  thisUser.save(ENTRYERR);
+  console.log(`Successfully entered:\n${req.params.userName}\n${req.params.password}\n${salthash}\n${req.params.email}\n\n\n`);
+  res.send("success");
+  collection = db.collections;
+  console.log(collection);
+  var us = getUsers();
+  us.then(function(result) {
+     console.log(result) // "Some User token"
+  })
+};
+
+//DEPRECATED
+const LOGINHANDLER = (req, res) => {
+  var userForName = getUser(req.params.userName);
+  userForName.then(function(result) {
+    var oldSalt = result.password.substring(0, 15);
+    console.log(`\n${oldSalt}\n`);
+    const hmac = crypto.createHmac("sha256", oldSalt);
+    const hash = hmac.update(req.params.password).digest('base64');
+    if(hash = userForName.password){
+      const newSalt = crypto.randomBytes(16);
+      const newHmac = crypto.createHmac("sha256", newSalt)
+      const newHash = newHmac.update(req.params.password).digest('base64');
+      const newSaltHash = `${newSalt}M${newHash}`;
+      user.updateOne({userName: req.params.userName},{password: newSaltHash}, function(err, res) {
+        //handler
+      });
+      console.log("Login successful");
+      res.send("Logged in");
+    }
+    else{
+      console.log("Login failed");
+      res.send("Login failed");
+    }
+    collection = db.collections;
+    console.log(collection);
+    var us = getUsers();
+    us.then(function(result) {
+       console.log(result) // "Some User token"
+    })
+  });
+};
+
+app.get("/register/userName/:userName/password/:password/email/:email", REGISTERHANDLERCRYPTO);
+app.get("/login/userName/:userName/password/:password", LOGINHANDLER);
 
 async function getUsers(){
   return await user.find({}, null);
+}
+
+async function getUser(username){
+  return await user.findOne({userName: `${username}`}, null);
 }
 
 async function deleteUser(username){

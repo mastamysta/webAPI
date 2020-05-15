@@ -8,33 +8,52 @@
 <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
 <script src="/home/ben/Programming/WebDev/Common Scripts/jquery-3.5.1.min.js"></script>
 <body>
-  <form action="" method="get" id="form1">
-    <div class="form-group">
-      <label for="exampleInputEmail1">Email address</label>
-      <input type="userName" class="form-control" id="userNameInput" aria-describedby="emailHelp" placeholder="Enter username">
-      <small id="emailHelp" class="form-text text-muted">We'll never share your email with anyone else.</small>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <a href="#" class="navbar-brand">Ben CO</a>
+    <div class="collapse navbar-collapse">
+      <ul class="mr-auto navbar-nav">
+        <li class="nav-item active">
+          <a href="login.html" class="nav-link">
+            Login
+          </a>
+        </li>
+        <li class="nav-item active">
+          <a href="index.html" class="nav-link">
+            Register
+          </a>
+        </li>
+      </ul>
     </div>
-    <div class="form-group">
-      <label for="exampleInputPassword1">Password</label>
-      <input type="password" class="form-control" id="exampleInputPassword1" placeholder="Password">
-    </div>
-    <div class="form-group">
-      <label for="exampleInputPassword1">Password</label>
-      <input type="data" class="form-control" id="exampledata" placeholder="data">
-    </div>
-    <button type="submit" class="btn btn-primary" id="submit">Submit</button>
-  </form>
+  </nav>
+  <div class="container p-5">
+    <form action="" method="get" id="form1">
+      <div class="form-group">
+        <label for="exampleInputEmail1">Email address</label>
+        <input type="userName" class="form-control" id="email" aria-describedby="emailHelp" placeholder="Enter Email">
+        <small id="emailHelp" class="form-text text-muted">We'll never share your email with anyone else.</small>
+      </div>
+      <div class="form-group">
+        <label for="exampleInputPassword1">Username</label>
+        <input type="data" class="form-control" id="username" placeholder="Enter Username">
+      </div>
+      <div class="form-group">
+        <label for="exampleInputPassword1">Password</label>
+        <input type="password" class="form-control" id="password" placeholder="Password">
+      </div>
+      <button type="submit" class="btn btn-primary" id="submit">Submit</button>
+    </form>
+  </div<
 </body>
 
 <script>
 function createParams(){
-  var userName = $("#userNameInput").val();
+  var userName = $("#username").val();
   console.log(userName);
-  var password = $("#exampleInputPassword1").val();
+  var password = $("#password").val();
   console.log(password);
-  var data = $("#exampledata").val();
-  console.log(data);
-  var append = `http://localhost:3000/userName/${userName}/password/${password}/data/${data}`;
+  var email = $("#email").val();
+  console.log(email);
+  var append = `http://localhost:3000/register/userName/${userName}/password/${password}/email/${email}`;
   return append;
 }
 $("#submit").click(function(){
