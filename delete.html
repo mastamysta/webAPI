@@ -1,0 +1,50 @@
+<!doctype html>
+<html>
+
+<head>
+  <title>Web API</title>
+</head>
+
+<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.3.1/css/bootstrap.min.css" integrity="sha384-ggOyR0iXCbMQv3Xipma34MD+dH/1fQ784/j6cY/iJTQUOhcWr7x9JvoRxT2MZw1T" crossorigin="anonymous">
+<script src="/home/ben/Programming/WebDev/Common Scripts/jquery-3.5.1.min.js"></script>
+<body>
+  <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+    <a href="#" class="navbar-brand">Ben CO</a>
+    <div class="collapse navbar-collapse">
+      <ul class="mr-auto navbar-nav">
+        <li class="nav-item active">
+          <a href="login.html" class="nav-link">
+            Login
+          </a>
+        </li>
+        <li class="nav-item active">
+          <a href="index.html" class="nav-link">
+            Register
+          </a>
+        </li>
+        <li class="nav-item active">
+          <a href="delete.html" class="nav-link">
+            Delete All Users
+          </a>
+        </li>
+      </ul>
+    </div>
+  </nav>
+  <div class="container p-5">
+    <form action="" method="get" id="form1">
+      <button type="submit" class="btn btn-primary" id="submit">Delete All Users</button>
+    </form>
+  </div<
+</body>
+
+<script>
+function createParams(){
+  var append = "http://localhost:3000/deleteAll";
+  return append;
+}
+$("#submit").click(function(){
+    document.getElementById('form1').setAttribute("action", createParams());
+    $( "#form1" ).submit();
+});
+</script>
+</html>
