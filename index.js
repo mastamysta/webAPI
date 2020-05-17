@@ -24,7 +24,8 @@ db.once('open', function() {
 var userSchema = new mongoose.Schema({
   userName: String,
   password: String,
-  email: String
+  email: String,
+  sessionID: String
 });
 
 app.listen(INPUTPORT, dank.connectionRec);
@@ -37,11 +38,12 @@ const ENTRYERR = (err, u) => {
   }
 };
 
-var user = mongoose.model('user', userSchema);
+var userModel = mongoose.model('user', userSchema);
 
 //DEPROCATED
 const REGISTERHANDLER = (req, res) => {
-  var thisUser = new user({userName: req.params.userName, password: req.params.password, email: req.params.email});
+  var sessionid = crypto.randomBytes(16).toString("base64");
+  var thisUser = new userModel({userName: req.params.userName, password: req.params.password, email: req.params.email, sessionID: sessionid});
   thisUser.save(ENTRYERR);
   console.log(`Successfully entered:\n${req.params.userName}\n${req.params.password}\n${req.params.email}\n\n\n`);
   res.send("success");
@@ -57,7 +59,8 @@ const REGISTERHANDLERCRYPTO = (req, res) => {
   const salt = crypto.randomBytes(16).toString("base64");
   const hash = crypto.createHmac("sha256", salt).update(req.params.password).digest('base64');
   const salthash = `${salt}$${hash}`;
-  var thisUser = new user({userName: req.params.userName, password: salthash, email: req.params.email});
+  var sessionid = crypto.randomBytes(16).toString("base64");
+  var thisUser = new userModel({userName: req.params.userName, password: salthash, email: req.params.email, sessionID: sessionid});
   thisUser.save(ENTRYERR);
   console.log(`Successfully entered:\n${req.params.userName}\n${req.params.password}\n${salthash}\n${req.params.email}\n\n\n`);
   res.send("success");
@@ -78,7 +81,8 @@ const POSTREGISTERHANDLERCRYPTO = (req, res) => {
   const salt = crypto.randomBytes(16).toString("base64");
   const hash = crypto.createHmac("sha256", salt).update(req.body.password).digest('base64');
   const salthash = `${salt}$${hash}`;
-  var thisUser = new user({userName: req.body.username, password: salthash, email: req.body.email});
+  var sessionid = crypto.randomBytes(16).toString("base64");
+  var thisUser = new userModel({userName: req.body.username, password: salthash, email: req.body.email, sessionID: sessionid});
   thisUser.save(ENTRYERR);
   console.log(`Successfully entered:\n${req.body.username}\n${req.body.password}\n${salthash}\n${req.body.email}\n\n\n`);
   res.send("success");
@@ -102,7 +106,8 @@ const LOGINHANDLER = (req, res) => {
       const newSalt = crypto.randomBytes(16).toString("base64");
       const newHash = crypto.createHmac("sha256", newSalt).update(req.params.password).digest('base64');
       const newSaltHash = `${newSalt}M${newHash}`;
-      user.updateOne({userName: req.params.userName},{password: newSaltHash}, function(err, res) {
+      var sessionid = crypto.randomBytes(16).toString("base64");
+      userModel.updateOne({userName: req.params.userName},{password: newSaltHash, sessionID: sessionid}, function(err, res) {
         //handler
       });
       console.log("Login successful");
@@ -121,6 +126,38 @@ const LOGINHANDLER = (req, res) => {
   });
 };
 
+const POSTLOGINHANDLER = (req, res) => {
+  var validPassWord = false;
+  var usersWithName = getUsers(req.body.username);
+  usersWithName.then(function(users){
+    if(!users){
+      res.status(500).send("No user with that username");
+    }else{
+      for(user of users){
+        var oldHashParts = user.password.split("$");
+        var oldSalt = oldHashParts[0];
+        var checkHash = crypto.createHmac("sha256", oldSalt).update(req.body.password).digest("base64");
+        if(checkHash == oldHashParts[1]){
+          validPassWord = true;
+          newSalt = crypto.randomBytes(16).toString("base64");
+          var newHash = crypto.createHmac("sha256", newSalt).update(req.body.password).digest("base64");
+          newPassword = `${newSalt}$${newHash}`;
+          var sessionid = crypto.randomBytes(16).toString("base64");
+          user.updateOne(user, {password: newPassword, sessionID: sessionid}, function(err, res) {
+            //handler
+          });
+          console.log("Login successful");
+          res.send("Logged in");
+        }
+      }
+      if(!validPassWord){
+        console.log("Invalid password provided");
+        res.status(500).send("Password incorrect");
+      }
+    }
+  });
+}
+
 function DELETEALLHANDLER(req, res){
   deleteAllUsers();
   res.send("All users deleted");
@@ -130,17 +167,20 @@ app.get("/register/userName/:userName/password/:password/email/:email", REGISTER
 app.get("/login/userName/:userName/password/:password", LOGINHANDLER);
 app.get("/deleteAll", DELETEALLHANDLER);
 app.post("/register", POSTREGISTERHANDLERCRYPTO);
+app.post("/login", POSTLOGINHANDLER)
 
-async function getUsers(){
-  return await user.find({}, null);
+//find list of users with matching username
+async function getUsers(username){
+  return await userModel.find({userName: `${username}`}, null);
 }
 
+//find one user with matching username (unstable)
 async function getUser(username){
-  return await user.findOne({userName: `${username}`}, null);
+  return await userModel.findOne({userName: `${username}`}, null);
 }
 
 async function deleteUser(username){
-  await user.deleteOne({userName: `${username}`}, function(err){err?console.log("error deleting user"):console.log(`success deleting ${username}`)});
+  await userModel.deleteOne({userName: `${username}`}, function(err){err?console.log("error deleting user"):console.log(`success deleting ${username}`)});
   var us = getUsers();
   us.then(function(result) {
      console.log(result) // "Some User token"
