@@ -5,7 +5,7 @@ const mongoose = require("mongoose");
 const express = require("express");
 const app = express();
 var bodyParser = require('body-parser');
-var cookieParser = require('cookies-parser');
+var cookieParser = require('cookie-parser');
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }));
 //enable cookie parser for session management
@@ -99,7 +99,7 @@ const POSTREGISTERHANDLERCRYPTO = (req, res) => {
   var sessionid = crypto.randomBytes(16).toString("base64");
   var thisUser = new userModel({userName: req.body.username, password: salthash, email: req.body.email, sessionID: sessionid});
   thisUser.save(ENTRYERR);
-  console.log(`Successfully entered:\n${req.body.username}\n${req.body.password}\n${salthash}\n${req.body.email}\n\n\n`);
+  console.log(`Successfully entered:\n${req.body.username}\n${salthash}\n${req.body.email}\n\n\n`);
   res.send("success");
   collection = db.collections;
   console.log(collection);
@@ -122,12 +122,12 @@ const LOGINHANDLER = (req, res) => {
       const newSalt = crypto.randomBytes(16).toString("base64");
       const newHash = crypto.createHmac("sha256", newSalt).update(req.params.password).digest('base64');
       const newSaltHash = `${newSalt}M${newHash}`;
-      var sessionid = crypto.randomBytes(16).toString("base64");
+      var sessionid = createSessionID();
       userModel.updateOne({userName: req.params.userName},{password: newSaltHash, sessionID: sessionid}, function(err, res) {
         //handler
       });
       console.log("Login successful");
-      res.send("Logged in");
+      sendSessionCookie(res, sessionid);
     }
     else{
       console.log("Login failed");
@@ -159,12 +159,12 @@ const POSTLOGINHANDLER = (req, res) => {
           newSalt = crypto.randomBytes(16).toString("base64");
           var newHash = crypto.createHmac("sha256", newSalt).update(req.body.password).digest("base64");
           newPassword = `${newSalt}$${newHash}`;
-          var sessionid = crypto.randomBytes(16).toString("base64");
+          var sessionid = createSessionID();
           user.updateOne(user, {password: newPassword, sessionID: sessionid}, function(err, res) {
             //handler
           });
           console.log("Login successful");
-          res.send("Logged in");
+          sendSessionCookie(res, sessionid);
         }
       }
       if(!validPassWord){
@@ -179,6 +179,15 @@ const POSTLOGINHANDLER = (req, res) => {
 function DELETEALLHANDLER(req, res){
   deleteAllUsers();
   res.send("All users deleted");
+}
+
+function createSessionID(){
+  return crypto.randomBytes(16).toString("base64");
+}
+
+function sendSessionCookie(res, ID){
+  res.cookie('sessionID', ID, { expires: new Date(Date.now() + 900000), httpOnly: true });
+  res.send("Logged In");
 }
 
 
