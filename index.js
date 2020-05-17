@@ -1,19 +1,27 @@
 const crypto = require("crypto");
 const mongoose = require("mongoose");
 
+//EXPRESS CONFIGUREATION STAGE
 const express = require("express");
 const app = express();
 var bodyParser = require('body-parser');
+var cookieParser = require('cookies-parser');
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }));
+//enable cookie parser for session management
+app.use(cookieParser());
 // parse application/json
 app.use(bodyParser.json());
 
 
+//PORT TO LISTEN FOR WEB TRAFFIC
 const INPUTPORT = 3000;
+//PORT TO CONNECT TO DATABASE
 const DBPORT = 26004;
+//DANK CONTAINS A FUNCTION TO HANDLE CONNECTION REQUESTS
 var dank = require("./dank");
 
+//CONNECT TO MONGODB DATABASE
 mongoose.connect(`mongodb://localhost:${DBPORT}`, {useNewUrlParser:true});
 var db = mongoose.connection;
 db.on('error', console.error.bind(console, 'connection error:'));
@@ -21,6 +29,7 @@ db.once('open', function() {
   // we're connected!
 });
 
+//CREATE SCHEMA FOR USER WITHIN DATABASE
 var userSchema = new mongoose.Schema({
   userName: String,
   password: String,
@@ -28,8 +37,10 @@ var userSchema = new mongoose.Schema({
   sessionID: String
 });
 
+//LISTEN ON INPUT PORT
 app.listen(INPUTPORT, dank.connectionRec);
 
+//ERROR HANDLER FOR DATA ENTRY ERRORS
 const ENTRYERR = (err, u) => {
   if (err){
     console.log("\n\n\n\nError inputting data into mongoDB\n\n\n\n");
@@ -38,9 +49,10 @@ const ENTRYERR = (err, u) => {
   }
 };
 
+//INSTANTIATE A MODEL FOR USERS USING THE USERSCHEMA
 var userModel = mongoose.model('user', userSchema);
 
-//DEPROCATED
+//DEPROCATED REGISTRATION HANDLER NO CRYPTO USING GET
 const REGISTERHANDLER = (req, res) => {
   var sessionid = crypto.randomBytes(16).toString("base64");
   var thisUser = new userModel({userName: req.params.userName, password: req.params.password, email: req.params.email, sessionID: sessionid});
@@ -55,6 +67,7 @@ const REGISTERHANDLER = (req, res) => {
   })
 };
 
+//CRYPTO REGISTRATION HANDLER USING GET
 const REGISTERHANDLERCRYPTO = (req, res) => {
   const salt = crypto.randomBytes(16).toString("base64");
   const hash = crypto.createHmac("sha256", salt).update(req.params.password).digest('base64');
@@ -72,11 +85,13 @@ const REGISTERHANDLERCRYPTO = (req, res) => {
   })
 };
 
+//TEST FOR POST REQUEST TO PRINT ALL JSON DATA
 const POSTTEST = (req, res) => {
   console.log(req.body);
   res.send("Success");
 }
 
+//HANDLES CRYPTO REGISTRATION REQUESTS THROUGH POST
 const POSTREGISTERHANDLERCRYPTO = (req, res) => {
   const salt = crypto.randomBytes(16).toString("base64");
   const hash = crypto.createHmac("sha256", salt).update(req.body.password).digest('base64');
@@ -94,6 +109,7 @@ const POSTREGISTERHANDLERCRYPTO = (req, res) => {
   })
 };
 
+//HANDLES CRYPTO LOGIN REQUESTS THROUGH GET
 const LOGINHANDLER = (req, res) => {
   var userForName = getUser(req.params.userName);
   userForName.then(function(result) {
@@ -126,6 +142,7 @@ const LOGINHANDLER = (req, res) => {
   });
 };
 
+//HANDLES CRYPTO LOGIN REQUESTS THROUGH POST
 const POSTLOGINHANDLER = (req, res) => {
   var validPassWord = false;
   var usersWithName = getUsers(req.body.username);
@@ -158,11 +175,14 @@ const POSTLOGINHANDLER = (req, res) => {
   });
 }
 
+//HANDLES REQUESTS TO DELETE ALL USERS IN DB
 function DELETEALLHANDLER(req, res){
   deleteAllUsers();
   res.send("All users deleted");
 }
 
+
+//SETTING HANDLERS FOR PATHS A HTTP METHODS
 app.get("/register/userName/:userName/password/:password/email/:email", REGISTERHANDLERCRYPTO);
 app.get("/login/userName/:userName/password/:password", LOGINHANDLER);
 app.get("/deleteAll", DELETEALLHANDLER);
@@ -179,6 +199,7 @@ async function getUser(username){
   return await userModel.findOne({userName: `${username}`}, null);
 }
 
+//METHOD TO DELETE ONE USER ON MONGODB
 async function deleteUser(username){
   await userModel.deleteOne({userName: `${username}`}, function(err){err?console.log("error deleting user"):console.log(`success deleting ${username}`)});
   var us = getUsers();
@@ -187,6 +208,7 @@ async function deleteUser(username){
   })
 }
 
+//METHOD TO DELETE ALL USERS ON MONGODB
 function deleteAllUsers(){
   var us = getUsers();
   us.then(function(result) {
