@@ -1,7 +1,15 @@
 const crypto = require("crypto");
 const mongoose = require("mongoose");
+
 const express = require("express");
 const app = express();
+var bodyParser = require('body-parser');
+// parse application/x-www-form-urlencoded
+app.use(bodyParser.urlencoded({ extended: false }));
+// parse application/json
+app.use(bodyParser.json());
+
+
 const INPUTPORT = 3000;
 const DBPORT = 26004;
 var dank = require("./dank");
@@ -31,6 +39,7 @@ const ENTRYERR = (err, u) => {
 
 var user = mongoose.model('user', userSchema);
 
+//DEPROCATED
 const REGISTERHANDLER = (req, res) => {
   var thisUser = new user({userName: req.params.userName, password: req.params.password, email: req.params.email});
   thisUser.save(ENTRYERR);
@@ -60,7 +69,27 @@ const REGISTERHANDLERCRYPTO = (req, res) => {
   })
 };
 
-//DEPRECATED
+const POSTTEST = (req, res) => {
+  console.log(req.body);
+  res.send("Success");
+}
+
+const POSTREGISTERHANDLERCRYPTO = (req, res) => {
+  const salt = crypto.randomBytes(16).toString("base64");
+  const hash = crypto.createHmac("sha256", salt).update(req.body.password).digest('base64');
+  const salthash = `${salt}$${hash}`;
+  var thisUser = new user({userName: req.body.username, password: salthash, email: req.body.email});
+  thisUser.save(ENTRYERR);
+  console.log(`Successfully entered:\n${req.body.username}\n${req.body.password}\n${salthash}\n${req.body.email}\n\n\n`);
+  res.send("success");
+  collection = db.collections;
+  console.log(collection);
+  var us = getUsers();
+  us.then(function(result) {
+     console.log(result) // "Some User token"
+  })
+};
+
 const LOGINHANDLER = (req, res) => {
   var userForName = getUser(req.params.userName);
   userForName.then(function(result) {
@@ -100,6 +129,7 @@ function DELETEALLHANDLER(req, res){
 app.get("/register/userName/:userName/password/:password/email/:email", REGISTERHANDLERCRYPTO);
 app.get("/login/userName/:userName/password/:password", LOGINHANDLER);
 app.get("/deleteAll", DELETEALLHANDLER);
+app.post("/register", POSTREGISTERHANDLERCRYPTO);
 
 async function getUsers(){
   return await user.find({}, null);
