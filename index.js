@@ -4,10 +4,12 @@ const mongoose = require("mongoose");
 //EXPRESS CONFIGUREATION STAGE
 const express = require("express");
 const app = express();
+const session = require("express-session");
 var bodyParser = require('body-parser');
 var cookieParser = require('cookie-parser');
 // parse application/x-www-form-urlencoded
 app.use(bodyParser.urlencoded({ extended: false }));
+app.use(session({secret: 'yeet'}));
 //enable cookie parser for session management
 app.use(cookieParser());
 // parse application/json
@@ -33,8 +35,7 @@ db.once('open', function() {
 var userSchema = new mongoose.Schema({
   userName: String,
   password: String,
-  email: String,
-  sessionID: String
+  email: String
 });
 
 //LISTEN ON INPUT PORT
@@ -103,7 +104,7 @@ const POSTREGISTERHANDLERCRYPTO = (req, res) => {
   res.send("success");
   collection = db.collections;
   console.log(collection);
-  var us = getUsers();
+  var us = getAllUsers();
   us.then(function(result) {
      console.log(result) // "Some User token"
   })
@@ -122,12 +123,15 @@ const LOGINHANDLER = (req, res) => {
       const newSalt = crypto.randomBytes(16).toString("base64");
       const newHash = crypto.createHmac("sha256", newSalt).update(req.params.password).digest('base64');
       const newSaltHash = `${newSalt}M${newHash}`;
-      var sessionid = createSessionID();
-      userModel.updateOne({userName: req.params.userName},{password: newSaltHash, sessionID: sessionid}, function(err, res) {
+      var session = req.session;
+      req.session.email = result.email;
+      userModel.updateOne({userName: req.params.userName},{password: newSaltHash}, function(err, res) {
         //handler
       });
       console.log("Login successful");
-      sendSessionCookie(res, sessionid);
+      res.send(`Logged in: ${req.session.email}`);
+      //ADD REDIRECT AFTER LOGIN
+      //res.redirect("")
     }
     else{
       console.log("Login failed");
@@ -135,7 +139,7 @@ const LOGINHANDLER = (req, res) => {
     }
     collection = db.collections;
     console.log(collection);
-    var us = getUsers();
+    var us = getAllUsers();
     us.then(function(result) {
        console.log(result) // "Some User token"
     })
@@ -159,12 +163,14 @@ const POSTLOGINHANDLER = (req, res) => {
           newSalt = crypto.randomBytes(16).toString("base64");
           var newHash = crypto.createHmac("sha256", newSalt).update(req.body.password).digest("base64");
           newPassword = `${newSalt}$${newHash}`;
-          var sessionid = createSessionID();
-          user.updateOne(user, {password: newPassword, sessionID: sessionid}, function(err, res) {
+          var session = req.session;
+          req.session.email = user.email;
+          user.updateOne(user, {password: newPassword}, function(err, res) {
             //handler
           });
-          console.log("Login successful");
-          sendSessionCookie(res, sessionid);
+          console.log(`Login successful of ${req.session.email} -- ${user.userName}`);
+          res.send(`Logged in: ${req.session.email}`)
+          //TODO: ADD REDIRECT
         }
       }
       if(!validPassWord){
@@ -175,9 +181,39 @@ const POSTLOGINHANDLER = (req, res) => {
   });
 }
 
+const LOGOUTHANDLER = (req, res) => {
+  email = req.session.email;
+  req.session.destroy((err) => {
+    if(err){
+      console.log(err);
+      res.status(500).send("Error");
+    }else{
+      console.log(`Server logged out ${email}`)
+      res.send(`Success logging out, goodbye ${email}`);
+    }
+
+  })
+  //res.redirect("file:///home/ben/Programming/WebDev/Node/webAPI/postLogin.html");
+}
+
+const CONTENTHANDLER = (req, res) => {
+  if(!req.session.email){
+    res.send("Log in first!")
+  }else{
+  var userPromise = getUserByEmail(req.session.email);
+  userPromise.then((userVal) => {
+    console.log(userVal);
+    res.send(`Hello: ${userVal.userName}`);
+  });
+  }
+}
+
 //HANDLES REQUESTS TO DELETE ALL USERS IN DB
 function DELETEALLHANDLER(req, res){
   deleteAllUsers();
+  getAllUsers().then((users) => {
+    console.log(users);
+  })
   res.send("All users deleted");
 }
 
@@ -185,16 +221,12 @@ function createSessionID(){
   return crypto.randomBytes(16).toString("base64");
 }
 
-function sendSessionCookie(res, ID){
-  res.cookie('sessionID', ID, { expires: new Date(Date.now() + 900000), httpOnly: true });
-  res.send("Logged In");
-}
-
-
 //SETTING HANDLERS FOR PATHS A HTTP METHODS
 app.get("/register/userName/:userName/password/:password/email/:email", REGISTERHANDLERCRYPTO);
 app.get("/login/userName/:userName/password/:password", LOGINHANDLER);
 app.get("/deleteAll", DELETEALLHANDLER);
+app.get("/logout", LOGOUTHANDLER);
+app.get("/content", CONTENTHANDLER);
 app.post("/register", POSTREGISTERHANDLERCRYPTO);
 app.post("/login", POSTLOGINHANDLER)
 
@@ -203,14 +235,24 @@ async function getUsers(username){
   return await userModel.find({userName: `${username}`}, null);
 }
 
+async function getAllUsers(){
+  var ret = await userModel.find({}, null);
+  return ret;
+}
+
 //find one user with matching username (unstable)
 async function getUser(username){
   return await userModel.findOne({userName: `${username}`}, null);
 }
 
+//find one user with matching username (unstable)
+async function getUserByEmail(Email){
+  return await userModel.findOne({email: `${Email}`}, null);
+}
+
 //METHOD TO DELETE ONE USER ON MONGODB
 async function deleteUser(username){
-  await userModel.deleteOne({userName: `${username}`}, function(err){err?console.log("error deleting user"):console.log(`success deleting ${username}`)});
+  await userModel.deleteOne(username, function(err){err?console.log("error deleting user"):console.log(`success deleting ${username}`)});
   var us = getUsers();
   us.then(function(result) {
      console.log(result) // "Some User token"
@@ -219,11 +261,11 @@ async function deleteUser(username){
 
 //METHOD TO DELETE ALL USERS ON MONGODB
 function deleteAllUsers(){
-  var us = getUsers();
+  var us = getAllUsers();
   us.then(function(result) {
     for(let entry of result){
-      deleteUser(entry.userName);
+      deleteUser(entry);
     }
   })
-
+  console.log("DELETION COMPLETE RETURNING TO REST __ EMPTY")
 }
