@@ -35,7 +35,8 @@ db.once('open', function() {
 var userSchema = new mongoose.Schema({
   userName: String,
   password: String,
-  email: String
+  email: String,
+  sessionID: String
 });
 
 //LISTEN ON INPUT PORT
@@ -123,13 +124,13 @@ const LOGINHANDLER = (req, res) => {
       const newSalt = crypto.randomBytes(16).toString("base64");
       const newHash = crypto.createHmac("sha256", newSalt).update(req.params.password).digest('base64');
       const newSaltHash = `${newSalt}M${newHash}`;
-      var session = req.session;
-      req.session.email = result.email;
-      userModel.updateOne({userName: req.params.userName},{password: newSaltHash}, function(err, res) {
-        //handler
-      });
+      var sessionID = crypto.randomBytes(16).toString("base64");
+      req.session.sessionID = sessionID;
+      result.password = newSaltHash;
+      result.sessionID = sessionID;
+      result.save();
       console.log("Login successful");
-      res.send(`Logged in: ${req.session.email}`);
+      res.send(`Logged in: ${result.userName}`);
       //ADD REDIRECT AFTER LOGIN
       //res.redirect("")
     }
@@ -147,29 +148,30 @@ const LOGINHANDLER = (req, res) => {
 };
 
 //HANDLES CRYPTO LOGIN REQUESTS THROUGH POST
-const POSTLOGINHANDLER = (req, res) => {
+const POSTLOGINHANDLER = function(req, res){
   var validPassWord = false;
   var usersWithName = getUsers(req.body.username);
   usersWithName.then(function(users){
     if(!users){
       res.status(500).send("No user with that username");
     }else{
-      for(user of users){
+      for(var user of users){
         var oldHashParts = user.password.split("$");
         var oldSalt = oldHashParts[0];
         var checkHash = crypto.createHmac("sha256", oldSalt).update(req.body.password).digest("base64");
         if(checkHash == oldHashParts[1]){
           validPassWord = true;
-          newSalt = crypto.randomBytes(16).toString("base64");
+          var newSalt = crypto.randomBytes(16).toString("base64");
           var newHash = crypto.createHmac("sha256", newSalt).update(req.body.password).digest("base64");
-          newPassword = `${newSalt}$${newHash}`;
-          var session = req.session;
-          req.session.email = user.email;
-          user.updateOne(user, {password: newPassword}, function(err, res) {
-            //handler
-          });
-          console.log(`Login successful of ${req.session.email} -- ${user.userName}`);
-          res.send(`Logged in: ${req.session.email}`)
+          var newPassword = `${newSalt}$${newHash}`;
+          var sessionID = crypto.randomBytes(16).toString("base64");
+          req.session.sessionID = sessionID;
+          user.sessionID = sessionID;
+          user.password = newPassword;
+          user.save();
+          var userPromise = getUserByID(req.session.sessionID);
+          res.send(`Logged in: ${user.userName}`);
+          console.log(`\n\n-----THIS USER LOGGED IN-----\n\n${user}\n\n---------END----------\n\n`)
           //TODO: ADD REDIRECT
         }
       }
@@ -182,25 +184,31 @@ const POSTLOGINHANDLER = (req, res) => {
 }
 
 const LOGOUTHANDLER = (req, res) => {
-  email = req.session.email;
-  req.session.destroy((err) => {
-    if(err){
-      console.log(err);
-      res.status(500).send("Error");
-    }else{
-      console.log(`Server logged out ${email}`)
-      res.send(`Success logging out, goodbye ${email}`);
-    }
+  var sessionID = req.session.sessionID;
+  var userPromise = getUserByID(sessionID);
+  var userName;
+  userPromise.then(function(userVal){
+    userName = userVal.userName;
+    req.session.destroy((err) => {
+      if(err){
+        console.log(err);
+        res.status(500).send("Error");
+      }else{
+        console.log(`Server logged out ${userName}`);
+        res.send(`Success logging out, goodbye ${userName}`);
+      }
 
+    })
   })
+
   //res.redirect("file:///home/ben/Programming/WebDev/Node/webAPI/postLogin.html");
 }
 
 const CONTENTHANDLER = (req, res) => {
-  if(!req.session.email){
+  if(!req.session.sessionID){
     res.send("Log in first!")
   }else{
-  var userPromise = getUserByEmail(req.session.email);
+  var userPromise = getUserByID(req.session.sessionID);
   userPromise.then((userVal) => {
     console.log(userVal);
     res.send(`Hello: ${userVal.userName}`);
@@ -221,18 +229,31 @@ function createSessionID(){
   return crypto.randomBytes(16).toString("base64");
 }
 
+const LISTHANDLER = (req, res) =>{
+  var usersPromise = getAllUsers();
+  usersPromise.then(function(usersVal){
+    console.log(`\n\n----LISTING USERS----\n\n${usersVal}\n\n----LIST COMPLETE----\n\n`);
+  });
+  res.end();
+}
+
 //SETTING HANDLERS FOR PATHS A HTTP METHODS
 app.get("/register/userName/:userName/password/:password/email/:email", REGISTERHANDLERCRYPTO);
 app.get("/login/userName/:userName/password/:password", LOGINHANDLER);
 app.get("/deleteAll", DELETEALLHANDLER);
 app.get("/logout", LOGOUTHANDLER);
 app.get("/content", CONTENTHANDLER);
+app.get("/list", LISTHANDLER);
 app.post("/register", POSTREGISTERHANDLERCRYPTO);
 app.post("/login", POSTLOGINHANDLER)
 
 //find list of users with matching username
 async function getUsers(username){
   return await userModel.find({userName: `${username}`}, null);
+}
+
+async function getUserByID(ID){
+  return await userModel.findOne({sessionID: ID}, null);
 }
 
 async function getAllUsers(){
