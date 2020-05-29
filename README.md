@@ -10,7 +10,7 @@
 </p>
 <h2>Reflection</h2>
 <p>
-  Obviously it is generally better to use a premade user authentication library rather than implement ones own crypto methods since it's sp easy to get so badly wrong. As an excercise in learning how HTTP and crypto work at a basic level, I wasn't too bothered about making it perfectly secure.
+  Obviously it is generally better to use a premade user authentication library rather than implement ones own crypto methods since it's sp easy to get so badly wrong. As an excercise in learning how HTTP and crypto work at a basic level, I wasn't too bothered about making it perfectly secure.<br><br>
 TODO:
   <ul>
     <li>
